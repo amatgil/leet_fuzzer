@@ -38,17 +38,14 @@ fn main() {
     let len: u32 = 4;
     let tests = [
         ([1, 0, 5], Value::Num(Array::from(5.0))),
-        ([1, 0, 4], Value::Num(Array::from(4.0))),
+        //([1, 0, 4], Value::Num(Array::from(4.0))),
         ([1, 0, 3], Value::Num(Array::from(3.0))),
-        ([1, 0, 2], Value::Num(Array::from(2.0))),
-        ([1, 0, 1], Value::Num(Array::from(1.0))),
+        //([1, 0, 2], Value::Num(Array::from(2.0))),
+        //([1, 0, 1], Value::Num(Array::from(1.0))),
     ];
     let checker = "for(len|/+|matbydedup)";
 
     let number_of_options: u64 = (prims.len() as u64).pow(len);
-
-    //let mut per_thou_time = SystemTime::now();
-    const HOW_OFTEN_TO_PRINT: usize = 5000;
 
     let permutations: Vec<Vec<_>> = prims.into_iter().permutations(len as usize).collect();
 
@@ -62,32 +59,26 @@ fn main() {
             let candidates = iterator
                 .filter(|code| {
                     let code: String = code.iter().collect();
+                    eprintln!("START: '{code}");
                     for (expected_out, input) in &tests {
-                        let r = panic::catch_unwind(|| {
-                            let mut uiua = Uiua::with_safe_sys()
-                                .with_execution_limit(Duration::from_millis(50));
-                            uiua.push(input.clone());
-                            let Ok(_) = uiua.run_str(&code) else {
-                                return false;
-                            };
-                            let Ok(_) = uiua.run_str(&checker) else {
-                                return false;
-                            };
-                            let res = uiua.take_stack();
-                            if res != expected_out {
-                                return false;
-                            }
-                            true
-                        });
-                        match r {
-                            Ok(false) => return false,
-                            Ok(true) => (),
-                            Err(_) => {
-                                eprintln!("Code '{code}' caused a panic");
-                                return false;
-                            }
+                        let mut uiua =
+                            Uiua::with_safe_sys().with_execution_limit(Duration::from_millis(50));
+                        uiua.push(input.clone());
+                        let Ok(_) = uiua.run_str(&code) else {
+                            eprintln!("END: '{code}");
+                            return false;
+                        };
+                        let Ok(_) = uiua.run_str(&checker) else {
+                            eprintln!("END: '{code}");
+                            return false;
+                        };
+                        let res = uiua.take_stack();
+                        if res != expected_out {
+                            eprintln!("END: '{code}");
+                            return false;
                         }
                     }
+                    eprintln!("END: '{code}");
                     true
                 })
                 .collect::<Vec<_>>();
@@ -98,7 +89,7 @@ fn main() {
 
     let mut last_print = SystemTime::now();
     while result.lock().unwrap().is_none() {
-        if last_print.elapsed().unwrap().as_millis() > 700 {
+        if last_print.elapsed().unwrap().as_millis() > 1000 {
             let percent = (progress.get() * 100) as f32 / number_of_options as f32;
             println!("Processing... {:.2}% complete", percent);
             last_print = SystemTime::now();
