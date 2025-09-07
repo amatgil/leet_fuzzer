@@ -548,6 +548,7 @@ name = "leet_fuzzer"
 version = "0.1.0"
 dependencies = [
  "itertools",
+ "rayon",
  "uiua",
 ]
 

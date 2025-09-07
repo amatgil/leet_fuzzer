@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use rayon::prelude::*;
 use std::time::{Duration, SystemTime};
 use uiua::*;
 
@@ -39,55 +40,51 @@ fn main() {
     ];
     let checker = "for(len|/+|matbydedup)";
 
-    let mut final_output = vec![];
-    let number_of_options: u64 = (prims.len() as u64).pow(len);
+    //let number_of_options: u64 = (prims.len() as u64).pow(len);
 
-    let mut per_thou_time = SystemTime::now();
+    //let mut per_thou_time = SystemTime::now();
     const HOW_OFTEN_TO_PRINT: usize = 5000;
 
-    let mut i = 0;
-    'outer: for code in prims.into_iter().permutations(len as usize) {
-        //'outer: for permutation in opt.iter().permutations(opt.len()) {
-        i += 1;
-        //let code = permutation.into_iter().collect::<String>();
-        let code: String = code.iter().collect();
+    let permutations: Vec<Vec<_>> = prims.into_iter().permutations(len as usize).collect();
+    let candidates = permutations
+        .par_iter()
+        .filter(|code| {
+            //'outer: for permutation in opt.iter().permutations(opt.len()) {
 
-        if i % HOW_OFTEN_TO_PRINT == 0 {
-            let delta_time = per_thou_time.elapsed().unwrap();
-            let delta_time = (number_of_options as u128 - i as u128) as f32
-                * delta_time.as_secs_f32() as f32
-                / HOW_OFTEN_TO_PRINT as f32;
-            per_thou_time = SystemTime::now();
-            eprintln!(
-                "Trying out ({i:06}/{number_of_options}): '{}' (ETA:{:.2}s ({:.1}m))",
-                code,
-                delta_time,
-                delta_time / 60.
-            );
-        }
+            //let code = permutation.into_iter().collect::<String>();
+            let code: String = code.iter().collect();
 
-        for (expected_out, input) in &tests {
-            let mut uiua = Uiua::with_safe_sys().with_execution_limit(Duration::from_millis(50));
-            uiua.push(input.clone());
+            //if i % HOW_OFTEN_TO_PRINT == 0 {
+            //    eprintln!("Trying out {code}");
+            //}
 
-            let Ok(_) = uiua.run_str(&code) else {
-                continue 'outer;
-            };
-            let Ok(_) = uiua.run_str(&checker) else {
-                continue 'outer;
-            };
-            let res = uiua.take_stack();
-            if res != expected_out {
-                continue 'outer;
+            //eprintln!("Running: {code}");
+            for (expected_out, input) in &tests {
+                let mut uiua =
+                    Uiua::with_safe_sys().with_execution_limit(Duration::from_millis(50));
+                uiua.push(input.clone());
+
+                let Ok(_) = uiua.run_str(&code) else {
+                    return false;
+                };
+                let Ok(_) = uiua.run_str(&checker) else {
+                    return false;
+                };
+                let res = uiua.take_stack();
+                if res != expected_out {
+                    return false;
+                }
+                //return res == expected_out;
             }
-        }
-        println!("FOUND CANDIDATE: {code}");
-        final_output.push(code.clone());
-        //}
-    }
+            true
+            //println!("FOUND CANDIDATE: {code}");
+            //}
+        })
+        .collect::<Vec<_>>();
 
     println!("Candidates (of length '{len}') were:");
-    for c in &final_output {
+    for c in &candidates {
+        let c: String = c.into_iter().collect();
         println!("\t'{c}'");
     }
 }
