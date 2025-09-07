@@ -29,7 +29,7 @@ fn main() {
      .collect();
     //let prims: Vec<char> = r" .:◌⟜⊸⤙⤚◠◡˙˜ητ∞-⇌⊸⇡".chars().collect();
 
-    let len: usize = 4;
+    let len: u32 = 4;
     let tests = [
         ([1, 0, 5], Value::Num(Array::from(5.0))),
         ([1, 0, 4], Value::Num(Array::from(4.0))),
@@ -40,51 +40,50 @@ fn main() {
     let checker = "for(len|/+|matbydedup)";
 
     let mut final_output = vec![];
-    let number_of_options: u128 = choose(prims.len() as u128 + len as u128 - 1, len as u128)
-        * (1..=len as u128).product::<u128>();
+    let number_of_options: u64 = (prims.len() as u64).pow(len);
 
     let mut per_thou_time = SystemTime::now();
     const HOW_OFTEN_TO_PRINT: usize = 5000;
 
     let mut i = 0;
-    for opt in prims.into_iter().combinations_with_replacement(len) {
-        'outer: for permutation in opt.iter().permutations(opt.len()) {
-            i += 1;
-            let code = permutation.into_iter().collect::<String>();
+    'outer: for code in prims.into_iter().permutations(len as usize) {
+        //'outer: for permutation in opt.iter().permutations(opt.len()) {
+        i += 1;
+        //let code = permutation.into_iter().collect::<String>();
+        let code: String = code.iter().collect();
 
-
-            if i % HOW_OFTEN_TO_PRINT == 0 {
-                let delta_time = per_thou_time.elapsed().unwrap();
-                let delta_time = (number_of_options as u128 - i as u128) as f32
-                    * delta_time.as_secs_f32() as f32
-                    / HOW_OFTEN_TO_PRINT as f32;
-                per_thou_time = SystemTime::now();
-                eprintln!(
-                    "Trying out ({i:06}/{number_of_options}): '{}' (ETA:{:.2}s ({:.1}m))",
-                    code,
-                    delta_time,
-                    delta_time / 60.
-                );
-            }
-
-            for (expected_out, input) in &tests {
-                let mut uiua = Uiua::with_safe_sys().with_execution_limit(Duration::from_millis(50));
-                uiua.push(input.clone());
-
-                let Ok(_) = uiua.run_str(&code) else {
-                    continue 'outer;
-                };
-                let Ok(_) = uiua.run_str(&checker) else {
-                    continue 'outer;
-                };
-                let res = uiua.take_stack();
-                if res != expected_out {
-                    continue 'outer;
-                }
-            }
-            println!("FOUND CANDIDATE: {code}");
-            final_output.push(code.clone());
+        if i % HOW_OFTEN_TO_PRINT == 0 {
+            let delta_time = per_thou_time.elapsed().unwrap();
+            let delta_time = (number_of_options as u128 - i as u128) as f32
+                * delta_time.as_secs_f32() as f32
+                / HOW_OFTEN_TO_PRINT as f32;
+            per_thou_time = SystemTime::now();
+            eprintln!(
+                "Trying out ({i:06}/{number_of_options}): '{}' (ETA:{:.2}s ({:.1}m))",
+                code,
+                delta_time,
+                delta_time / 60.
+            );
         }
+
+        for (expected_out, input) in &tests {
+            let mut uiua = Uiua::with_safe_sys().with_execution_limit(Duration::from_millis(50));
+            uiua.push(input.clone());
+
+            let Ok(_) = uiua.run_str(&code) else {
+                continue 'outer;
+            };
+            let Ok(_) = uiua.run_str(&checker) else {
+                continue 'outer;
+            };
+            let res = uiua.take_stack();
+            if res != expected_out {
+                continue 'outer;
+            }
+        }
+        println!("FOUND CANDIDATE: {code}");
+        final_output.push(code.clone());
+        //}
     }
 
     println!("Candidates (of length '{len}') were:");
