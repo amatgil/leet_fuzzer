@@ -13,9 +13,6 @@
       pkgs = (import nixpkgs { system = "x86_64-linux"; inherit overlays; });
     in
     {
-      packages = forAllSystems (system: {
-        default = pkgs.callPackage ./default.nix { inherit pkgs; };
-      });
       devShells = forAllSystems (system: {
         default = pkgs.callPackage ./shell.nix { inherit pkgs; };
       });
