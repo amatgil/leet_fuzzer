@@ -1,6 +1,11 @@
 use itertools::Itertools;
 use rayon::prelude::*;
-use std::time::{Duration, SystemTime};
+use rayon_progress::ProgressAdaptor;
+use std::panic;
+use std::{
+    sync::{Arc, Mutex},
+    time::{Duration, SystemTime},
+};
 use uiua::*;
 
 fn choose(n: u128, mut k: u128) -> u128 {
@@ -40,51 +45,69 @@ fn main() {
     ];
     let checker = "for(len|/+|matbydedup)";
 
-    //let number_of_options: u64 = (prims.len() as u64).pow(len);
+    let number_of_options: u64 = (prims.len() as u64).pow(len);
 
     //let mut per_thou_time = SystemTime::now();
     const HOW_OFTEN_TO_PRINT: usize = 5000;
 
     let permutations: Vec<Vec<_>> = prims.into_iter().permutations(len as usize).collect();
-    let candidates = permutations
-        .par_iter()
-        .filter(|code| {
-            //'outer: for permutation in opt.iter().permutations(opt.len()) {
 
-            //let code = permutation.into_iter().collect::<String>();
-            let code: String = code.iter().collect();
+    let iterator = ProgressAdaptor::new(permutations);
+    let progress = iterator.items_processed();
+    let result = Arc::new(Mutex::new(None));
 
-            //if i % HOW_OFTEN_TO_PRINT == 0 {
-            //    eprintln!("Trying out {code}");
-            //}
+    rayon::spawn({
+        let result = result.clone();
+        move || {
+            let candidates = iterator
+                .filter(|code| {
+                    let code: String = code.iter().collect();
+                    for (expected_out, input) in &tests {
+                        let r = panic::catch_unwind(|| {
+                            let mut uiua = Uiua::with_safe_sys()
+                                .with_execution_limit(Duration::from_millis(50));
+                            uiua.push(input.clone());
+                            let Ok(_) = uiua.run_str(&code) else {
+                                return false;
+                            };
+                            let Ok(_) = uiua.run_str(&checker) else {
+                                return false;
+                            };
+                            let res = uiua.take_stack();
+                            if res != expected_out {
+                                return false;
+                            }
+                            true
+                        });
+                        match r {
+                            Ok(false) => return false,
+                            Ok(true) => (),
+                            Err(_) => {
+                                eprintln!("Code '{code}' caused a panic");
+                                return false;
+                            }
+                        }
+                    }
+                    true
+                })
+                .collect::<Vec<_>>();
 
-            //eprintln!("Running: {code}");
-            for (expected_out, input) in &tests {
-                let mut uiua =
-                    Uiua::with_safe_sys().with_execution_limit(Duration::from_millis(50));
-                uiua.push(input.clone());
+            *result.lock().unwrap() = Some(candidates);
+        }
+    });
 
-                let Ok(_) = uiua.run_str(&code) else {
-                    return false;
-                };
-                let Ok(_) = uiua.run_str(&checker) else {
-                    return false;
-                };
-                let res = uiua.take_stack();
-                if res != expected_out {
-                    return false;
-                }
-                //return res == expected_out;
-            }
-            true
-            //println!("FOUND CANDIDATE: {code}");
-            //}
-        })
-        .collect::<Vec<_>>();
+    let mut last_print = SystemTime::now();
+    while result.lock().unwrap().is_none() {
+        if last_print.elapsed().unwrap().as_millis() > 700 {
+            let percent = (progress.get() * 100) as f32 / number_of_options as f32;
+            println!("Processing... {:.2}% complete", percent);
+            last_print = SystemTime::now();
+        }
+    }
 
     println!("Candidates (of length '{len}') were:");
-    for c in &candidates {
-        let c: String = c.into_iter().collect();
+    for c in &*result.lock().unwrap().as_ref().unwrap() {
+        let c: String = c.clone().into_iter().collect();
         println!("\t'{c}'");
     }
 }

@@ -549,6 +549,7 @@ version = "0.1.0"
 dependencies = [
  "itertools",
  "rayon",
+ "rayon-progress",
  "uiua",
 ]
 
@@ -918,6 +919,15 @@ checksum = "22e18b0f0062d30d4230b2e85ff77fdfe4326feb054b9783a3460d8435c8ab91"
 dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
+]
+
+[[package]]
+name = "rayon-progress"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "35b64ab4d27434ed26877f51bdae59a85d218f8d81f2defa2b5eaa580fb228c2"
+dependencies = [
+ "rayon",
 ]
 
 [[package]]
